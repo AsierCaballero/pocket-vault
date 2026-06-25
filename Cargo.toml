@@ -2,7 +2,7 @@
 name = "pocket-vault"
 version = "0.1.0"
 edition = "2024"
-description = "Offline secret manager with age encryption"
+description = "Offline secret manager with age encryption — CLI for local credential storage"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
