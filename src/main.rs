@@ -26,16 +26,19 @@ fn main() -> anyhow::Result<()> {
             println!("Vault initialized at {}", vault_dir.display());
         }
         Command::Set { key, value } => {
-            let recipient = store.get_recipient("default")
+            let recipient = store
+                .get_recipient("default")
                 .ok_or_else(|| anyhow::anyhow!("run init first"))?;
             let encrypted = Crypto::encrypt(value.as_bytes(), recipient)?;
             store.set(key, encrypted)?;
             println!("Stored");
         }
         Command::Get { key } => {
-            let identity = store.get_identity("default")
+            let identity = store
+                .get_identity("default")
                 .ok_or_else(|| anyhow::anyhow!("run init first"))?;
-            let encrypted = store.get(&key)
+            let encrypted = store
+                .get(&key)
                 .ok_or_else(|| anyhow::anyhow!("not found: {}", key))?;
             let decrypted = Crypto::decrypt(encrypted, identity)?;
             println!("{}", String::from_utf8(decrypted)?);
@@ -50,18 +53,23 @@ fn main() -> anyhow::Result<()> {
             println!("Deleted: {}", key);
         }
         Command::Rotate => {
-            let identity = store.get_identity("default")
-                .ok_or_else(|| anyhow::anyhow!("run init first"))?;
+            let identity = store
+                .get_identity("default")
+                .ok_or_else(|| anyhow::anyhow!("run init first"))?
+                .to_owned();
             let (new_rec, new_id) = Crypto::generate_keypair()?;
-            let secrets = store.list();
-            for key in &secrets {
-                let encrypted = store.get(key).unwrap();
-                let decrypted = Crypto::decrypt(encrypted, identity)?;
+            let secrets: Vec<(String, Vec<u8>)> = store
+                .list()
+                .into_iter()
+                .filter_map(|key| store.get(&key).map(|v| (key, v.to_vec())))
+                .collect();
+            for (key, encrypted) in secrets {
+                let decrypted = Crypto::decrypt(&encrypted, &identity)?;
                 let re_encrypted = Crypto::encrypt(&decrypted, &new_rec)?;
-                store.set(key.clone(), re_encrypted)?;
+                store.set(key, re_encrypted)?;
             }
             store.store_keypair("default", &new_id, &new_rec)?;
-            println!("Rotated keys for {} secrets", secrets.len());
+            println!("Rotated keys for {} secrets", store.list().len());
         }
         Command::Backup { path } => {
             store.export_to(&path)?;
